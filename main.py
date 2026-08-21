@@ -138,8 +138,42 @@ def run():
                 except Exception as debug_err:
                     print(f"[VARNING] Kunde inte spara debug-filer för {store}: {debug_err}")
 
+                # SPECIFIK LOGIK FÖR ELGIGANTEN.SE
+                if store == "Elgiganten":
+                    try:
+                        cookie_btn = page.locator("#onetrust-accept-btn-handler, button:has-text('Acceptera alla'), button:has-text('Godkänn alla')")
+                        if cookie_btn.first.is_visible(timeout=4000):
+                            cookie_btn.first.click()
+                            print("[INFO] Stängde cookie-banner på Elgiganten.")
+                            page.wait_for_timeout(1000)
+                    except Exception:
+                        pass
+
+                    product_cards = page.locator("a[href*='/product/'], .product-tile, [data-test='product-card']").all()
+                    found_elgiganten_product = False
+
+                    for card in product_cards:
+                        card_text = card.inner_text().strip().lower()
+                        if "rog ally" in card_text:
+                            found_elgiganten_product = True
+                            clean_name = " ".join(card_text.split())[:60]
+                            product_id = f"Elgiganten:{clean_name}"
+
+                            if product_id not in seen_products:
+                                seen_products.add(product_id)
+                                new_found = True
+                                message = f"Ny träff hos Elgiganten Outlet:\n{clean_name}\n\nLänk: {url}"
+                                print(f"[NY TRÄFF] Elgiganten: {clean_name}")
+                                send_push_notification("Ny Asus ROG Ally på Elgiganten!", message)
+                            else:
+                                print("[INFO] Träff finns på Elgiganten, men har redan notifierats.")
+                            break
+
+                    if not found_elgiganten_product:
+                        print("[INFO] Inga outlet-produkter hittades på Elgiganten.")
+
                 # SPECIFIK LOGIK FÖR POWER.SE
-                if store == "Power":
+                elif store == "Power":
                     no_results = page.locator("text=/0 träffar|inga produkter/i").count()
                     product_cards = page.locator("a[href*='/p-']").all()
                     
@@ -238,32 +272,6 @@ def run():
 
                     if not found_webhallen_product:
                         print("[INFO] Inga fyndvaror hittades på Webhallen.")
-
-                # ALLMÄN LOGIK FÖR ÖVRIGA BUTIKER (Elgiganten)
-                else:
-                    body_text = page.inner_text("body").lower()
-                    search_term = "rog ally"
-
-                    if search_term in body_text:
-                        elements = page.locator(f"text=/{search_term}/i").all()
-                        
-                        for el in elements:
-                            text = el.inner_text().strip()
-                            if len(text) > 15:
-                                clean_text = " ".join(text.split())[:80]
-                                product_id = f"{store}:{clean_text}"
-
-                                if product_id not in seen_products:
-                                    seen_products.add(product_id)
-                                    new_found = True
-                                    message = f"Ny träff hos {store}:\n{clean_text}\n\nLänk: {url}"
-                                    print(f"[NY TRÄFF] {store}: {clean_text}")
-                                    send_push_notification(f"Ny Asus ROG Ally på {store}!", message)
-                                else:
-                                    print(f"[INFO] Träff finns på {store}, men har redan notifierats.")
-                                break
-                    else:
-                        print(f"[INFO] Inga träffar på {store}.")
 
             except Exception as e:
                 print(f"[FEL] Kunde inte skanna {store}: {e}")
