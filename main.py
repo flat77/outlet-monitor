@@ -9,7 +9,7 @@ DB_FILE = "seen_products.json"
 URLS = {
     "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
     "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
-    "Komplett": "https://www.komplett.se/search?q=asus+rog+ally&b=DEMO",
+    "Komplett": "https://www.komplett.se/search?q=asus+rog+ally",
     "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
     "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet"
@@ -120,7 +120,7 @@ def run():
                 continue  # Hoppa över Playwright för Blocket
 
             # ==========================================
-            # INET VIA DIREKT API (Går förbi Cloudflare)
+            # INET VIA DIREKT API
             # ==========================================
             if store == "Inet":
                 api_url = "https://www.inet.se/api/search?q=asus%20rog%20ally"
@@ -175,7 +175,7 @@ def run():
                 
                 page.wait_for_timeout(2000)
 
-                # Försök klicka bort cookie-banner direkt efter sidladdning
+                # Cookie-hantering
                 try:
                     cookie_btn = page.locator("#onetrust-accept-btn-handler, button:has-text('Acceptera alla'), button:has-text('Godkänn alla'), button:has-text('Acceptera allt')")
                     if cookie_btn.first.is_visible(timeout=3000):
@@ -185,7 +185,7 @@ def run():
                 except Exception:
                     pass
 
-                # Sparar skärmdump och HTML EFTER cookie-hantering
+                # Debug-filer
                 try:
                     page.screenshot(path=f"debug_{safe_store_name}.png", full_page=True)
                     with open(f"debug_{safe_store_name}.html", "w", encoding="utf-8") as f:
@@ -256,10 +256,16 @@ def run():
 
                     print(f"[DEBUG] Hittade {len(product_cards)} potentiella element/kort på Komplett.")
 
+                    # Godkända nyckelord för Kompletts fyndvaror
+                    outlet_keywords = ["demo", "b-grade", "b_grade", "fyndvara", "outlet", "begagnad"]
+
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
                         
-                        if "rog ally" in card_text:
+                        is_rog_ally = "rog ally" in card_text
+                        is_demo_grade = any(kw in card_text for kw in outlet_keywords)
+
+                        if is_rog_ally and is_demo_grade:
                             href = card.get_attribute("href")
                             if href:
                                 product_link = href if href.startswith("http") else f"https://www.komplett.se{href}"
@@ -273,7 +279,7 @@ def run():
                             if product_id not in seen_products:
                                 seen_products.add(product_id)
                                 new_found = True
-                                message = f"Ny träff hos Komplett Demo:\n{clean_name}\n\nLänk: {product_link}"
+                                message = f"Ny träff hos Komplett Demo/B-Grade:\n{clean_name}\n\nLänk: {product_link}"
                                 print(f"[NY TRÄFF] Komplett: {clean_name}")
                                 send_push_notification("Ny Asus ROG Ally på Komplett Demo!", message)
                             else:
@@ -281,7 +287,7 @@ def run():
                             break
 
                     if not found_komplett_product:
-                        print("[INFO] Inga demovaror för ROG Ally hittades på Komplett.")
+                        print("[INFO] Inga demovaror/B-Grade för ROG Ally hittades på Komplett.")
 
                 # SPECIFIK LOGIK FÖR WEBHALLEN.SE
                 elif store == "Webhallen":
