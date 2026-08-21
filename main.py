@@ -8,7 +8,7 @@ DB_FILE = "seen_products.json"
 
 URLS = {
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
-    "Power": "https://www.power.se/search/?q=asus+rog+ally+outlet",
+    "Power": "https://www.power.se/search/?q=asus+rog+ally",
     "Blocket": "https://www.blocket.se/skopa/erbjudanden?q=asus+rog+ally",
     "Facebook Marketplace (Uppsala 7 mil)": "https://www.facebook.com/marketplace/uppsala/search?query=asus%20rog%20ally&exact=false"
 }
