@@ -1,0 +1,32 @@
+name: Outlet Monitor
+
+on:
+  schedule:
+    # Körs var 15:e minut
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Gör att du kan starta skriptet manuellt
+
+jobs:
+  check-outlet:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hämta koden
+        uses: actions/checkout@v4
+
+      - name: Konfigurera Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Installera beroenden
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium --with-deps
+
+      - name: Kör skriptet
+        env:
+          PUSHBULLET_TOKEN: ${{ secrets.PUSHBULLET_TOKEN }}
+        run: |
+          python main.py
