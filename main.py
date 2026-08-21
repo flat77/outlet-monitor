@@ -8,13 +8,12 @@ DB_FILE = "seen_products.json"
 
 URLS = {
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
-    "Power": "https://www.power.se/search/?q=asus+rog+ally",
+    "Power": "https://www.power.se/search/?q=asus+rog+ally+outlet",
     "Blocket": "https://www.blocket.se/skopa/erbjudanden?q=asus+rog+ally",
     "Facebook Marketplace (Uppsala 7 mil)": "https://www.facebook.com/marketplace/uppsala/search?query=asus%20rog%20ally&exact=false"
 }
 
 def load_seen_products():
-    """Laddar tidigare sedda produkter från JSON-filen."""
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -24,7 +23,6 @@ def load_seen_products():
     return set()
 
 def save_seen_products(seen_set):
-    """Sparar sedda produkter till JSON-filen."""
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(list(seen_set), f, ensure_ascii=False, indent=2)
@@ -32,7 +30,6 @@ def save_seen_products(seen_set):
         print(f"[FEL] Kunde inte spara till {DB_FILE}: {e}")
 
 def send_push_notification(title, body):
-    """Skickar pushnotis via Pushbullet."""
     if not PUSHBULLET_TOKEN:
         print("[VARNING] Ingen PUSHBULLET_TOKEN hittades! Hoppar över notis.")
         return
@@ -54,7 +51,7 @@ def send_push_notification(title, body):
         print(f"[FEL] Undantag vid notisskickning: {e}")
 
 def run():
-    print("=== Startar Outlet-skanning med historik ===")
+    print("=== Startar Outlet-skanning ===")
     seen_products = load_seen_products()
     new_found = False
 
@@ -71,32 +68,62 @@ def run():
             try:
                 page.goto(url, timeout=45000, wait_until="domcontentloaded")
                 page.wait_for_timeout(3000)
-                
-                body_text = page.inner_text("body").lower()
-                search_term = "rog ally"
 
-                if search_term in body_text:
-                    elements = page.locator(f"text=/{search_term}/i").all()
+                # SPECIFIK LOGIK FÖR POWER.SE
+                if store == "Power":
+                    # Kollar om det inte finns några produkter (Power visar ofta "0 träffar" eller "Inga produkter")
+                    no_results = page.locator("text=/0 träffar|inga produkter/i").count()
                     
-                    for el in elements:
-                        text = el.inner_text().strip()
-                        if len(text) > 12:
-                            # Skapar ett unikt ID för produkten baserat på butik och text
-                            product_id = f"{store}:{text[:80]}"
+                    # Söker specifikt efter produktlänkar/titlar på Power
+                    product_cards = page.locator("a[href*='/p-']").all()
+                    
+                    found_power_product = False
+                    for card in product_cards:
+                        card_text = card.inner_text().strip().lower()
+                        if "rog ally" in card_text:
+                            found_power_product = True
+                            # Skapar ett stabilt ID baserat på produktnamnet
+                            clean_name = " ".join(card_text.split())[:60]
+                            product_id = f"Power:{clean_name}"
 
-                            # KONTROLL: Skicka ENDAST push om produkten ÄR NY!
                             if product_id not in seen_products:
                                 seen_products.add(product_id)
                                 new_found = True
-                                
-                                message = f"Ny träff hos {store}:\n{text[:120]}\n\nLänk: {url}"
-                                print(f"[NY TRÄFF] {store}: {text[:60]}")
-                                send_push_notification(f"Ny Asus ROG Ally på {store}!", message)
+                                message = f"Ny träff hos Power:\n{clean_name}\n\nLänk: {url}"
+                                print(f"[NY TRÄFF] Power: {clean_name}")
+                                send_push_notification("Ny Asus ROG Ally på Power!", message)
                             else:
-                                print(f"[INFO] Träff hittad på {store}, men produkten har redan skickats tidigare.")
+                                print("[INFO] Träff finns på Power, men har redan notifierats.")
                             break
+                    
+                    if not found_power_product or no_results > 0:
+                        print("[INFO] Inga riktiga produkter hittades på Power.")
+
+                # ALLMÄN LOGIK FÖR ÖVRIGA BUTIKER (Elgiganten, Blocket, Facebook)
                 else:
-                    print(f"[INFO] Inga träffar på {store}.")
+                    body_text = page.inner_text("body").lower()
+                    search_term = "rog ally"
+
+                    if search_term in body_text:
+                        elements = page.locator(f"text=/{search_term}/i").all()
+                        
+                        for el in elements:
+                            text = el.inner_text().strip()
+                            if len(text) > 15:
+                                clean_text = " ".join(text.split())[:80]
+                                product_id = f"{store}:{clean_text}"
+
+                                if product_id not in seen_products:
+                                    seen_products.add(product_id)
+                                    new_found = True
+                                    message = f"Ny träff hos {store}:\n{clean_text}\n\nLänk: {url}"
+                                    print(f"[NY TRÄFF] {store}: {clean_text}")
+                                    send_push_notification(f"Ny Asus ROG Ally på {store}!", message)
+                                else:
+                                    print(f"[INFO] Träff finns på {store}, men har redan notifierats.")
+                                break
+                    else:
+                        print(f"[INFO] Inga träffar på {store}.")
 
             except Exception as e:
                 print(f"[FEL] Kunde inte skanna {store}: {e}")
@@ -105,7 +132,7 @@ def run():
 
     if new_found:
         save_seen_products(seen_products)
-        print("[INFO] Nya produkter har sparats till databasen.")
+        print("[INFO] Nya produkter har sparats till minnet.")
 
     print("\n=== Skanning klar ===")
 
