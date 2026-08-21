@@ -42,3 +42,12 @@ jobs:
           git add seen_products.json || true
           git commit -m "Uppdatera sedda produkter" || exit 0
           git push
+
+      - name: Upload Debug Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: |
+            debug_*.png
+            debug_*.html
