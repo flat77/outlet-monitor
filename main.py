@@ -8,8 +8,8 @@ DB_FILE = "seen_products.json"
 
 URLS = {
     "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
-    "Komplett": "https://www.komplett.se/category/21611/demo-fyndvaror?q=asus+rog+ally",
     "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
+    "Komplett": "https://www.komplett.se/category/21611/demo-fyndvaror?q=asus+rog+ally",
     "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
     "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet"
@@ -74,7 +74,7 @@ def run():
             safe_store_name = "".join(c for c in store if c.isalnum() or c in (' ', '_')).rstrip().replace(" ", "_")
 
             # ==========================================
-            # BLOCKET VIA DIREKT API (Går förbi 404 & Popups)
+            # BLOCKET VIA DIREKT API
             # ==========================================
             if store == "Blocket":
                 api_url = "https://api.blocket.se/search_bff/v2/content?q=asus%20rog%20ally&status=active"
@@ -118,6 +118,52 @@ def run():
                     print(f"[FEL] Kunde inte hämta Blocket-data via API: {api_err}")
 
                 continue  # Hoppa över Playwright för Blocket
+
+            # ==========================================
+            # INET VIA DIREKT API (Går förbi Cloudflare)
+            # ==========================================
+            if store == "Inet":
+                api_url = "https://www.inet.se/api/search?q=asus%20rog%20ally"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "application/json"
+                }
+                try:
+                    res = requests.get(api_url, headers=headers, timeout=10)
+                    if res.status_code == 200:
+                        products = res.json().get("products", [])
+                        found_inet_product = False
+                        
+                        for prod in products:
+                            name = prod.get("name", "").strip()
+                            # Kontrollera om produkten är B-Stock/Fyndvara
+                            is_outlet = prod.get("isBStock", False) or "fyndvara" in name.lower() or "outlet" in name.lower()
+                            
+                            if "rog ally" in name.lower() and is_outlet:
+                                found_inet_product = True
+                                prod_id = prod.get("id")
+                                clean_name = " ".join(name.split())[:80]
+                                product_key = f"Inet:{prod_id}" if prod_id else f"Inet:{clean_name}"
+
+                                if product_key not in seen_products:
+                                    seen_products.add(product_key)
+                                    new_found = True
+                                    prod_url = f"https://www.inet.se/produkt/{prod_id}" if prod_id else url
+                                    message = f"Ny träff på Inet Fyndhörna:\n{clean_name}\n\nLänk: {prod_url}"
+                                    print(f"[NY TRÄFF] Inet: {clean_name}")
+                                    send_push_notification("Ny Asus ROG Ally på Inet!", message)
+                                else:
+                                    print("[INFO] Träff finns på Inet, men har redan notifierats.")
+                                break
+
+                        if not found_inet_product:
+                            print("[INFO] Inga fyndvaror för ROG Ally hittades på Inet via API.")
+                    else:
+                        print(f"[VARNING] Inet API svarade med statuskod: {res.status_code}")
+                except Exception as api_err:
+                    print(f"[FEL] Kunde inte hämta Inet-data via API: {api_err}")
+
+                continue  # Hoppa över Playwright för Inet
 
             # ==========================================
             # ÖVRIGA BUTIKER VIA PLAYWRIGHT
@@ -223,31 +269,6 @@ def run():
 
                     if not found_komplett_product:
                         print("[INFO] Inga demovaror hittades på Komplett.")
-
-                # SPECIFIK LOGIK FÖR INET.SE
-                elif store == "Inet":
-                    product_cards = page.locator(".product-card, a[href*='/produkt/']").all()
-                    found_inet_product = False
-
-                    for card in product_cards:
-                        card_text = card.inner_text().strip().lower()
-                        if "rog ally" in card_text:
-                            found_inet_product = True
-                            clean_name = " ".join(card_text.split())[:60]
-                            product_id = f"Inet:{clean_name}"
-
-                            if product_id not in seen_products:
-                                seen_products.add(product_id)
-                                new_found = True
-                                message = f"Ny träff hos Inet Fyndhörna:\n{clean_name}\n\nLänk: {url}"
-                                print(f"[NY TRÄFF] Inet: {clean_name}")
-                                send_push_notification("Ny Asus ROG Ally på Inet Fyndhörna!", message)
-                            else:
-                                print("[INFO] Träff finns på Inet, men har redan notifierats.")
-                            break
-
-                    if not found_inet_product:
-                        print("[INFO] Inga fyndvaror hittades på Inet.")
 
                 # SPECIFIK LOGIK FÖR WEBHALLEN.SE
                 elif store == "Webhallen":
