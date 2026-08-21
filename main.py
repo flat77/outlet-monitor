@@ -32,8 +32,11 @@ def save_seen_products(seen_set):
         print(f"[FEL] Kunde inte spara till {DB_FILE}: {e}")
 
 def send_push_notification(title, body):
+    token_exists = bool(PUSHBULLET_TOKEN)
+    print(f"[DEBUG PUSH] Försöker skicka notis... Token hittad: {token_exists}")
+
     if not PUSHBULLET_TOKEN:
-        print("[VARNING] Ingen PUSHBULLET_TOKEN hittades! Hoppar över notis.")
+        print("[VARNING] Ingen PUSHBULLET_TOKEN hittades i miljövariablerna! Hoppar över notis.")
         return
 
     url = "https://api.pushbullet.com/v2/pushes"
@@ -45,6 +48,9 @@ def send_push_notification(title, body):
     
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
+        print(f"[DEBUG PUSH] Statuskod från Pushbullet: {response.status_code}")
+        print(f"[DEBUG PUSH] Svar från Pushbullet: {response.text}")
+
         if response.status_code == 200:
             print("[INFO] Pushnotis skickades framgångsrikt.")
         else:
@@ -247,21 +253,25 @@ def run():
                 # SPECIFIK LOGIK FÖR KOMPLETT.SE
                 elif store == "Komplett":
                     try:
-                        page.wait_for_selector(".product-list-item, .product-box, article, [data-product-id]", timeout=10000)
+                        page.wait_for_selector("a[href*='/product/'], .product-list-item", timeout=15000)
                     except Exception:
-                        print("[INFO] Ingen produktstruktur hittades inom timeout på Komplett.")
+                        print("[VARNING] Hittade inga produktsatser inom timeout på Komplett.")
 
-                    product_cards = page.locator(".product-list-item, .product-box, article, a[href*='/product/']").all()
+                    page.wait_for_timeout(2000)
+
+                    product_cards = page.locator("a[href*='/product/']").all()
                     found_komplett_product = False
 
-                    print(f"[DEBUG] Hittade {len(product_cards)} potentiella element/kort på Komplett.")
+                    print(f"[DEBUG] Hittade {len(product_cards)} produktlänkar på Komplett.")
 
-                    # Godkända nyckelord för Kompletts fyndvaror
                     outlet_keywords = ["demo", "b-grade", "b_grade", "fyndvara", "outlet", "begagnad"]
 
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
                         
+                        if "rog ally" in card_text:
+                            print(f"[DEBUG KOMPLETT TEXT]: {card_text.replace(chr(10), ' ')}")
+
                         is_rog_ally = "rog ally" in card_text
                         is_demo_grade = any(kw in card_text for kw in outlet_keywords)
 
