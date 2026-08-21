@@ -264,7 +264,7 @@ def run():
 
                     print(f"[DEBUG] Hittade {len(product_cards)} produktlänkar på Komplett.")
 
-                    outlet_keywords = ["demo", "b-grade", "b_grade", "fyndvara", "outlet", "begagnad"]
+                    outlet_keywords = ["demo", "-B-Grade", "b_grade", "fyndvara", "outlet", "begagnad"]
 
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
