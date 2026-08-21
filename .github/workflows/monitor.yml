@@ -2,8 +2,8 @@ name: Outlet Monitor
 
 on:
   schedule:
-    # Körs var 15:e minut
-    - cron: '*/15 * * * *'
+    # Körs var 5:e minut
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Gör att du kan starta skriptet manuellt
 
 jobs:
