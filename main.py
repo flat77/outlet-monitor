@@ -140,7 +140,7 @@ def run():
                 except Exception:
                     pass
 
-                # Sparar skärmdump och HTML EFTER att cookie-bannern försökt stängas
+                # Sparar skärmdump och HTML EFTER cookie-hantering
                 try:
                     page.screenshot(path=f"debug_{safe_store_name}.png", full_page=True)
                     with open(f"debug_{safe_store_name}.html", "w", encoding="utf-8") as f:
@@ -150,20 +150,26 @@ def run():
 
                 # SPECIFIK LOGIK FÖR ELGIGANTEN.SE
                 if store == "Elgiganten":
-                    product_cards = page.locator("a[href*='/product/'], .product-tile, [data-test='product-card']").all()
+                    product_cards = page.locator("a[href*='/product/'], article, [data-test='product-card'], .product-tile").all()
                     found_elgiganten_product = False
 
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
                         if "rog ally" in card_text:
+                            href = card.get_attribute("href")
+                            if href:
+                                product_link = href if href.startswith("http") else f"https://www.elgiganten.se{href}"
+                            else:
+                                product_link = url
+
                             found_elgiganten_product = True
-                            clean_name = " ".join(card_text.split())[:60]
+                            clean_name = " ".join(card_text.split())[:80]
                             product_id = f"Elgiganten:{clean_name}"
 
                             if product_id not in seen_products:
                                 seen_products.add(product_id)
                                 new_found = True
-                                message = f"Ny träff hos Elgiganten Outlet:\n{clean_name}\n\nLänk: {url}"
+                                message = f"Ny träff hos Elgiganten Outlet:\n{clean_name}\n\nLänk: {product_link}"
                                 print(f"[NY TRÄFF] Elgiganten: {clean_name}")
                                 send_push_notification("Ny Asus ROG Ally på Elgiganten!", message)
                             else:
