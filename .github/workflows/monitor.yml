@@ -4,7 +4,11 @@ on:
   schedule:
     # Körs var 5:e minut
     - cron: '*/5 * * * *'
-  workflow_dispatch: # Gör att du kan starta skriptet manuellt
+  workflow_dispatch:
+
+# Ger Actions tillåtelse att spara ändringar i repositoryt
+permissions:
+  contents: write
 
 jobs:
   check-outlet:
@@ -30,3 +34,11 @@ jobs:
           PUSHBULLET_TOKEN: ${{ secrets.PUSHBULLET_TOKEN }}
         run: |
           python main.py
+
+      - name: Spara sedda produkter till GitHub
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add seen_products.json || true
+          git commit -m "Uppdatera sedda produkter" || exit 0
+          git push
