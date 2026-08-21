@@ -7,8 +7,11 @@ PUSHBULLET_TOKEN = os.environ.get("PUSHBULLET_TOKEN")
 DB_FILE = "seen_products.json"
 
 URLS = {
+    "Komplett": "https://www.komplett.se/category/21611/demo-fyndvaror?q=asus+rog+ally",
+    "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
+    "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
-    "Power": "https://www.power.se/search/?q=asus+rog+ally+outlet",
+    "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet",
     "Blocket": "https://www.blocket.se/skopa/erbjudanden?q=asus+rog+ally",
     "Facebook Marketplace (Uppsala 7 mil)": "https://www.facebook.com/marketplace/uppsala/search?query=asus%20rog%20ally&exact=false"
 }
@@ -71,10 +74,7 @@ def run():
 
                 # SPECIFIK LOGIK FÖR POWER.SE
                 if store == "Power":
-                    # Kollar om det inte finns några produkter (Power visar ofta "0 träffar" eller "Inga produkter")
                     no_results = page.locator("text=/0 träffar|inga produkter/i").count()
-                    
-                    # Söker specifikt efter produktlänkar/titlar på Power
                     product_cards = page.locator("a[href*='/p-']").all()
                     
                     found_power_product = False
@@ -82,7 +82,6 @@ def run():
                         card_text = card.inner_text().strip().lower()
                         if "rog ally" in card_text:
                             found_power_product = True
-                            # Skapar ett stabilt ID baserat på produktnamnet
                             clean_name = " ".join(card_text.split())[:60]
                             product_id = f"Power:{clean_name}"
 
@@ -98,6 +97,81 @@ def run():
                     
                     if not found_power_product or no_results > 0:
                         print("[INFO] Inga riktiga produkter hittades på Power.")
+
+                # SPECIFIK LOGIK FÖR KOMPLETT.SE
+                elif store == "Komplett":
+                    product_cards = page.locator(".product-list-item, .product-box, [data-product-id]").all()
+                    found_komplett_product = False
+
+                    for card in product_cards:
+                        card_text = card.inner_text().strip().lower()
+                        if "rog ally" in card_text:
+                            found_komplett_product = True
+                            clean_name = " ".join(card_text.split())[:60]
+                            product_id = f"Komplett:{clean_name}"
+
+                            if product_id not in seen_products:
+                                seen_products.add(product_id)
+                                new_found = True
+                                message = f"Ny träff hos Komplett Demo:\n{clean_name}\n\nLänk: {url}"
+                                print(f"[NY TRÄFF] Komplett: {clean_name}")
+                                send_push_notification("Ny Asus ROG Ally på Komplett Demo!", message)
+                            else:
+                                print("[INFO] Träff finns på Komplett, men har redan notifierats.")
+                            break
+
+                    if not found_komplett_product:
+                        print("[INFO] Inga demovaror hittades på Komplett.")
+
+                # SPECIFIK LOGIK FÖR INET.SE
+                elif store == "Inet":
+                    product_cards = page.locator(".product-card, a[href*='/produkt/']").all()
+                    found_inet_product = False
+
+                    for card in product_cards:
+                        card_text = card.inner_text().strip().lower()
+                        if "rog ally" in card_text:
+                            found_inet_product = True
+                            clean_name = " ".join(card_text.split())[:60]
+                            product_id = f"Inet:{clean_name}"
+
+                            if product_id not in seen_products:
+                                seen_products.add(product_id)
+                                new_found = True
+                                message = f"Ny träff hos Inet Fyndhörna:\n{clean_name}\n\nLänk: {url}"
+                                print(f"[NY TRÄFF] Inet: {clean_name}")
+                                send_push_notification("Ny Asus ROG Ally på Inet Fyndhörna!", message)
+                            else:
+                                print("[INFO] Träff finns på Inet, men har redan notifierats.")
+                            break
+
+                    if not found_inet_product:
+                        print("[INFO] Inga fyndvaror hittades på Inet.")
+
+                # SPECIFIK LOGIK FÖR WEBHALLEN.SE
+                elif store == "Webhallen":
+                    product_cards = page.locator(".product-list-item, a[href*='/product/']").all()
+                    found_webhallen_product = False
+
+                    for card in product_cards:
+                        card_text = card.inner_text().strip().lower()
+                        if "rog ally" in card_text:
+                            found_webhallen_product = True
+                            clean_name = " ".join(card_text.split())[:60]
+                            product_id = f"Webhallen:{clean_name}"
+
+                            if product_id not in seen_products:
+                                seen_products.add(product_id)
+                                new_found = True
+                                message = f"Ny träff hos Webhallen Fyndvara:\n{clean_name}\n\nLänk: {url}"
+                                print(f"[NY TRÄFF] Webhallen: {clean_name}")
+                                send_push_notification("Ny Asus ROG Ally på Webhallen Fyndvara!", message)
+                            else:
+                                print("[INFO] Träff finns på Webhallen, men har redan notifierats.")
+                            break
+
+                    if not found_webhallen_product:
+                        print("[INFO] Inga fyndvaror hittades på Webhallen.")
 
                 # ALLMÄN LOGIK FÖR ÖVRIGA BUTIKER (Elgiganten, Blocket, Facebook)
                 else:
