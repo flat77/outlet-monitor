@@ -117,7 +117,7 @@ def run():
                 except Exception as api_err:
                     print(f"[FEL] Kunde inte hämta Blocket-data via API: {api_err}")
 
-                continue  # Hoppa över Playwright-inläsningen för Blocket
+                continue  # Hoppa över Playwright för Blocket
 
             # ==========================================
             # ÖVRIGA BUTIKER VIA PLAYWRIGHT
@@ -128,9 +128,19 @@ def run():
                 except Exception:
                     page.goto(url, timeout=45000, wait_until="domcontentloaded")
                 
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(2000)
 
-                # Sparar skärmdump och HTML för artifacts/felsökning
+                # Försök klicka bort cookie-banner direkt efter sidladdning
+                try:
+                    cookie_btn = page.locator("#onetrust-accept-btn-handler, button:has-text('Acceptera alla'), button:has-text('Godkänn alla'), button:has-text('Acceptera allt')")
+                    if cookie_btn.first.is_visible(timeout=3000):
+                        cookie_btn.first.click()
+                        print(f"[INFO] Stängde cookie-banner på {store}.")
+                        page.wait_for_timeout(1000)
+                except Exception:
+                    pass
+
+                # Sparar skärmdump och HTML EFTER att cookie-bannern försökt stängas
                 try:
                     page.screenshot(path=f"debug_{safe_store_name}.png", full_page=True)
                     with open(f"debug_{safe_store_name}.html", "w", encoding="utf-8") as f:
@@ -140,15 +150,6 @@ def run():
 
                 # SPECIFIK LOGIK FÖR ELGIGANTEN.SE
                 if store == "Elgiganten":
-                    try:
-                        cookie_btn = page.locator("#onetrust-accept-btn-handler, button:has-text('Acceptera alla'), button:has-text('Godkänn alla')")
-                        if cookie_btn.first.is_visible(timeout=4000):
-                            cookie_btn.first.click()
-                            print("[INFO] Stängde cookie-banner på Elgiganten.")
-                            page.wait_for_timeout(1000)
-                    except Exception:
-                        pass
-
                     product_cards = page.locator("a[href*='/product/'], .product-tile, [data-test='product-card']").all()
                     found_elgiganten_product = False
 
