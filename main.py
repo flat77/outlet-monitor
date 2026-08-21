@@ -9,7 +9,7 @@ DB_FILE = "seen_products.json"
 URLS = {
     "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
     "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
-    "Komplett": "https://www.komplett.se/category/21611/demo-fyndvaror?q=asus+rog+ally",
+    "Komplett": "https://www.komplett.se/search?q=asus+rog+ally&b=DEMO",
     "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
     "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet"
@@ -136,7 +136,6 @@ def run():
                         
                         for prod in products:
                             name = prod.get("name", "").strip()
-                            # Kontrollera om produkten är B-Stock/Fyndvara
                             is_outlet = prod.get("isBStock", False) or "fyndvara" in name.lower() or "outlet" in name.lower()
                             
                             if "rog ally" in name.lower() and is_outlet:
@@ -247,20 +246,34 @@ def run():
 
                 # SPECIFIK LOGIK FÖR KOMPLETT.SE
                 elif store == "Komplett":
-                    product_cards = page.locator(".product-list-item, .product-box, [data-product-id]").all()
+                    try:
+                        page.wait_for_selector(".product-list-item, .product-box, article, [data-product-id]", timeout=10000)
+                    except Exception:
+                        print("[INFO] Ingen produktstruktur hittades inom timeout på Komplett.")
+
+                    product_cards = page.locator(".product-list-item, .product-box, article, a[href*='/product/']").all()
                     found_komplett_product = False
+
+                    print(f"[DEBUG] Hittade {len(product_cards)} potentiella element/kort på Komplett.")
 
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
-                        if "rog ally" in card_text:
+                        
+                        if "rog ally" in card_text and ("demo" in card_text or "fyndvara" in card_text or "b-stock" in card_text or "outlet" in card_text):
+                            href = card.get_attribute("href")
+                            if href:
+                                product_link = href if href.startswith("http") else f"https://www.komplett.se{href}"
+                            else:
+                                product_link = url
+
                             found_komplett_product = True
-                            clean_name = " ".join(card_text.split())[:60]
+                            clean_name = " ".join(card_text.split())[:80]
                             product_id = f"Komplett:{clean_name}"
 
                             if product_id not in seen_products:
                                 seen_products.add(product_id)
                                 new_found = True
-                                message = f"Ny träff hos Komplett Demo:\n{clean_name}\n\nLänk: {url}"
+                                message = f"Ny träff hos Komplett Demo:\n{clean_name}\n\nLänk: {product_link}"
                                 print(f"[NY TRÄFF] Komplett: {clean_name}")
                                 send_push_notification("Ny Asus ROG Ally på Komplett Demo!", message)
                             else:
@@ -268,7 +281,7 @@ def run():
                             break
 
                     if not found_komplett_product:
-                        print("[INFO] Inga demovaror hittades på Komplett.")
+                        print("[INFO] Inga demovaror för ROG Ally hittades på Komplett.")
 
                 # SPECIFIK LOGIK FÖR WEBHALLEN.SE
                 elif store == "Webhallen":
