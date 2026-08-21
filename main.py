@@ -61,16 +61,39 @@ def run():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 800}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            locale="sv-SE",
+            timezone_id="Europe/Stockholm"
         )
+        
         page = context.new_page()
+        # Dölj att Playwright är en automatiserad bot för navigator.webdriver
+        page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         for store, url in URLS.items():
             print(f"\n[INFO] Skannar {store}...")
+            # Skapar ett säkert filnamn utan specialtecken för felsökningsfilerna
+            safe_store_name = "".join(c for c in store if c.isalnum() or c in (' ', '_')).rstrip().replace(" ", "_")
+
             try:
-                page.goto(url, timeout=45000, wait_until="domcontentloaded")
+                # Vänta tills nätverksanropen lugnat ner sig (viktigt för SPA-sajter som Webhallen/Komplett)
+                try:
+                    page.goto(url, timeout=45000, wait_until="networkidle")
+                except Exception:
+                    page.goto(url, timeout=45000, wait_until="domcontentloaded")
+                
                 page.wait_for_timeout(3000)
+
+                # --- FELSÖKNINGSKOD: SPARAR BILD OCH HTML ---
+                try:
+                    page.screenshot(path=f"debug_{safe_store_name}.png", full_page=True)
+                    with open(f"debug_{safe_store_name}.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                    print(f"[DEBUG] Sparade skärmdump och HTML för {store}")
+                except Exception as debug_err:
+                    print(f"[VARNING] Kunde inte spara debug-filer för {store}: {debug_err}")
+                # ---------------------------------------------
 
                 # SPECIFIK LOGIK FÖR POWER.SE
                 if store == "Power":
