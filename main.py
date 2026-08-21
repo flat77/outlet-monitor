@@ -259,7 +259,7 @@ def run():
                     for card in product_cards:
                         card_text = card.inner_text().strip().lower()
                         
-                        if "rog ally" in card_text and ("demo" in card_text or "fyndvara" in card_text or "b-stock" in card_text or "outlet" in card_text):
+                        if "rog ally" in card_text:
                             href = card.get_attribute("href")
                             if href:
                                 product_link = href if href.startswith("http") else f"https://www.komplett.se{href}"
