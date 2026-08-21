@@ -9,7 +9,7 @@ DB_FILE = "seen_products.json"
 URLS = {
     "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
     "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
-    "Komplett": "https://www.komplett.se/search?q=asus+rog+ally",
+    "Komplett": "https://www.komplett.se/search?q=asus+rog+ally+Xbox",
     "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
     "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet"
