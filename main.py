@@ -8,7 +8,7 @@ PUSHBULLET_TOKEN = os.environ.get("PUSHBULLET_TOKEN")
 # Butiker och specifika söklänkar
 URLS = {
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
-    "Power": "https://www.power.se/search/?q=asus+rog+ally+outlet"
+    "Power": "https://www.power.se/search/?q=asus+rog+ally"
 }
 
 def send_push_notification(title, body):
