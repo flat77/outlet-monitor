@@ -7,13 +7,12 @@ PUSHBULLET_TOKEN = os.environ.get("PUSHBULLET_TOKEN")
 DB_FILE = "seen_products.json"
 
 URLS = {
+    "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
     "Komplett": "https://www.komplett.se/category/21611/demo-fyndvaror?q=asus+rog+ally",
     "Inet": "https://www.inet.se/kategori/851/fyndhorna?q=asus+rog+ally",
     "Webhallen": "https://www.webhallen.se/se/search?query=asus%20rog%20ally&condition=1",
     "Elgiganten": "https://www.elgiganten.se/outlet?q=asus+rog+ally",
-    "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet",
-    "Blocket": "https://www.blocket.se/e/annonser?q=asus+rog+ally",
-    "Facebook Marketplace (Uppsala 7 mil)": "https://www.facebook.com/marketplace/uppsala/search?query=asus%20rog%20ally&exact=false"
+    "Power": "https://www.power.se/outlet/search/?q=asus+rog+ally+outlet"
 }
 
 def load_seen_products():
@@ -74,6 +73,55 @@ def run():
             print(f"\n[INFO] Skannar {store}...")
             safe_store_name = "".join(c for c in store if c.isalnum() or c in (' ', '_')).rstrip().replace(" ", "_")
 
+            # ==========================================
+            # BLOCKET VIA DIREKT API (Går förbi 404 & Popups)
+            # ==========================================
+            if store == "Blocket":
+                api_url = "https://api.blocket.se/search_bff/v2/content?q=asus%20rog%20ally&status=active"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "application/json"
+                }
+                
+                try:
+                    res = requests.get(api_url, headers=headers, timeout=10)
+                    if res.status_code == 200:
+                        data = res.json()
+                        docs = data.get("docs", [])
+                        found_blocket_product = False
+
+                        for doc in docs:
+                            subject = doc.get("subject", "").strip()
+                            ad_id = doc.get("ad_id") or doc.get("list_id")
+                            
+                            if "rog ally" in subject.lower():
+                                found_blocket_product = True
+                                clean_name = " ".join(subject.split())[:80]
+                                product_key = f"Blocket:{ad_id}" if ad_id else f"Blocket:{clean_name}"
+
+                                if product_key not in seen_products:
+                                    seen_products.add(product_key)
+                                    new_found = True
+                                    ad_url = doc.get("canonical_url") or url
+                                    message = f"Ny träff på Blocket:\n{clean_name}\n\nLänk: {ad_url}"
+                                    print(f"[NY TRÄFF] Blocket: {clean_name}")
+                                    send_push_notification("Ny Asus ROG Ally på Blocket!", message)
+                                else:
+                                    print("[INFO] Träff finns på Blocket, men har redan notifierats.")
+                                break
+
+                        if not found_blocket_product:
+                            print("[INFO] Inga relevanta annonser hittades på Blocket via API.")
+                    else:
+                        print(f"[VARNING] Blocket API svarade med statuskod: {res.status_code}")
+                except Exception as api_err:
+                    print(f"[FEL] Kunde inte hämta Blocket-data via API: {api_err}")
+
+                continue  # Hoppa över Playwright-inläsningen för Blocket
+
+            # ==========================================
+            # ÖVRIGA BUTIKER VIA PLAYWRIGHT
+            # ==========================================
             try:
                 try:
                     page.goto(url, timeout=45000, wait_until="networkidle")
@@ -90,40 +138,8 @@ def run():
                 except Exception as debug_err:
                     print(f"[VARNING] Kunde inte spara debug-filer för {store}: {debug_err}")
 
-                # SPECIFIK LOGIK FÖR BLOCKET.SE
-                if store == "Blocket":
-                    try:
-                        popup_close = page.locator("button:has-text('Godkänn'), button:has-text('Acceptera'), button:has-text('Påminn mig senare'), [aria-label='Stäng']")
-                        if popup_close.first.is_visible(timeout=3000):
-                            popup_close.first.click()
-                    except Exception:
-                        pass
-
-                    product_cards = page.locator("a[href*='/annons/']").all()
-                    found_blocket_product = False
-
-                    for card in product_cards:
-                        card_text = card.inner_text().strip().lower()
-                        if "rog ally" in card_text:
-                            found_blocket_product = True
-                            clean_name = " ".join(card_text.split())[:80]
-                            product_id = f"Blocket:{clean_name}"
-
-                            if product_id not in seen_products:
-                                seen_products.add(product_id)
-                                new_found = True
-                                message = f"Ny träff på Blocket:\n{clean_name}\n\nLänk: {url}"
-                                print(f"[NY TRÄFF] Blocket: {clean_name}")
-                                send_push_notification("Ny Asus ROG Ally på Blocket!", message)
-                            else:
-                                print("[INFO] Träff finns på Blocket, men har redan notifierats.")
-                            break
-
-                    if not found_blocket_product:
-                        print("[INFO] Inga annonser hittades på Blocket.")
-
                 # SPECIFIK LOGIK FÖR POWER.SE
-                elif store == "Power":
+                if store == "Power":
                     no_results = page.locator("text=/0 träffar|inga produkter/i").count()
                     product_cards = page.locator("a[href*='/p-']").all()
                     
@@ -223,7 +239,7 @@ def run():
                     if not found_webhallen_product:
                         print("[INFO] Inga fyndvaror hittades på Webhallen.")
 
-                # ALLMÄN LOGIK FÖR ÖVRIGA BUTIKER (Elgiganten, Facebook)
+                # ALLMÄN LOGIK FÖR ÖVRIGA BUTIKER (Elgiganten)
                 else:
                     body_text = page.inner_text("body").lower()
                     search_term = "rog ally"
